@@ -85,7 +85,7 @@ float fdR(float eta1, float phi1, float eta2, float phi2) {
 RVec<float> VdR(const RVec<float>& vec_eta, const RVec<float>& vec_phi, float obj_eta, float obj_phi) {
     RVec<float> out(vec_eta.size());
     if (obj_eta == -999 || obj_phi == -999) {
-        std::fill(out.begin(), out.end(), 1.0f);
+        std::fill(out.begin(), out.end(), 10.0f);
         return out;
     }
     for (size_t i = 0; i < vec_eta.size(); i++) {
@@ -191,51 +191,44 @@ RVec<float> dRfromClosestJet(const RVec<float>& ak4_eta, const RVec<float>& ak4_
     return vec_minDR;
 }
 
-RVec<RVec<int>> getVBSPairs(const RVec<int>& goodJets, const RVec<float>& jet_var) {
+RVec<RVec<int>> getJetPairs(const RVec<int>& goodJets) {
     if (Sum(goodJets) >= 2) {
-        return ROOT::VecOps::Combinations(jet_var, 2);
+        return ROOT::VecOps::Combinations(goodJets, 2);
     } else {
-    // Create properly matched return type: vector of vector
         RVec<RVec<int>> result;
-        // Add two empty vectors
-        result.emplace_back(RVec<int>{-999});
-        result.emplace_back(RVec<int>{-999});
+        result.emplace_back(RVec<int>{999});
+        result.emplace_back(RVec<int>{999});
         return result;
     }
 }
 
-RVec<int> VBS_MaxEtaJJ(RVec<float> Jet_pt, RVec<float> Jet_eta, RVec<float> Jet_phi, RVec<float> Jet_mass) {
-    // find pair of jets with max delta eta
-    RVec<int> good_jet_idx = {};
-    RVec<float> Jet_Pt = {};
-    for (size_t i = 0; i < Jet_pt.size(); i++) {
-        TLorentzVector jet;
-        jet.SetPtEtaPhiM(Jet_pt[i], Jet_eta[i], Jet_phi[i], Jet_mass[i]);
-        Jet_Pt.push_back(jet.Pt());
-    }
-    int Nvbfjet1 = -1;
-    int Nvbfjet2 = -1;
-    float maxvbfjetdeta = 0;
-    for (size_t i = 0; i < Jet_eta.size(); i++) {
-        for (size_t j = i+1; j < Jet_eta.size(); j++) {
-            float deta = std::abs(Jet_eta[i] - Jet_eta[j]);
-            if (deta > maxvbfjetdeta) {
-                maxvbfjetdeta = deta;
-                Nvbfjet1 = i;
-                Nvbfjet2 = j;
+RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& jet_pt, const RVec<float>& jet_eta, 
+                                     const RVec<float>& jet_phi, const RVec<float>& jet_mass) {
+    RVec<int> selected_jet_indices = {};
+    int first_jet_idx = -1;
+    int second_jet_idx = -1;
+    float max_delta_eta = 0;
+    
+    for (size_t i = 0; i < jet_eta.size(); i++) {
+        for (size_t j = i + 1; j < jet_eta.size(); j++) {
+            float delta_eta = std::abs(jet_eta[i] - jet_eta[j]);
+            if (delta_eta > max_delta_eta) {
+                max_delta_eta = delta_eta;
+                first_jet_idx = i;
+                second_jet_idx = j;
             }
         }
     }
-    if (Jet_Pt[Nvbfjet1] > Jet_Pt[Nvbfjet2]) {
-        good_jet_idx.push_back(Nvbfjet1);
-        good_jet_idx.push_back(Nvbfjet2);
-    }
-    else {
-        good_jet_idx.push_back(Nvbfjet2);
-        good_jet_idx.push_back(Nvbfjet1);
-    }
-    return good_jet_idx;
+    
+    selected_jet_indices.push_back(first_jet_idx);
+    selected_jet_indices.push_back(second_jet_idx);
+    
+    std::sort(selected_jet_indices.begin(), selected_jet_indices.end(), 
+              [&jet_pt](int i, int j) { return jet_pt[i] > jet_pt[j]; });
+              
+    return selected_jet_indices;
 }
+
 /*
 ############################################
 SNAPSHOT

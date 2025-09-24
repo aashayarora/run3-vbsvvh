@@ -30,8 +30,8 @@ RNode runAnalysis(RNode df, std::string ana, SPANet::SPANetInference &spanet_inf
     df = runPreselection(df, ana, makeSpanetTrainingdata);
     
     if (!makeSpanetTrainingdata) {
-	    df = spanet_inference.RunSPANetInference(df);
-        df = spanet_inference.ParseSpanetInference(df);
+	    // df = spanet_inference.RunSPANetInference(df);
+        // df = spanet_inference.ParseSpanetInference(df);
     }
     return df;
 }

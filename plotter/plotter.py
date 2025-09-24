@@ -76,14 +76,14 @@ class Plotter:
         if self.bkg_samples_labels is None and self.df_bkg is not None:
             print("No background labels provided, will use single histogram for background")
 
-    def make_plots(self, hists, density=False, save=True, savePath="plots"):
+    def make_plots(self, hists, density=False, save=True, logy=False, savePath="plots"):
         for histogram in hists:
             self._fill_histogram(histogram)
         
         # Then create all plots
         for hist in hists:
             if isinstance(hist, Hist1D):
-                self.plot1D(hist, density=density, save=save)
+                self.plot1D(hist, density=density, logy=logy, save=save)
             elif isinstance(hist, Hist2D):
                 self.plot2D(hist, save=save)
     
@@ -134,13 +134,17 @@ class Plotter:
         # TODO: Implement 2D histogram filling
         pass
 
-    def plot1D(self, histogram, density=False, save=True, savePath="plots"):
+    def plot1D(self, histogram, density=False, save=True, logy=False, savePath="plots"):
         try:
             hist_ratio = self._create_ratio_histogram(histogram)
             fig, ax_main, ax_ratio = self._setup_figure_axes(hist_ratio is not None)
             self._plot_background_histograms(histogram, ax_main, density)
             self._plot_data_histograms(histogram, ax_main, density)
             self._plot_signal_histograms(histogram, ax_main, density)
+
+            if logy:
+                ax_main.set_yscale("log")
+                ax_main.set_ylim(0.1, None)
             
             if hist_ratio:
                 hep.histplot(hist_ratio, color="black", ax=ax_ratio, histtype="errorbar", density=density)

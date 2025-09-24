@@ -27,4 +27,7 @@ RNode AK8JetsSelection(RNode df);
 RNode AK4JetsSelection(RNode df);
 
 RNode runPreselection(RNode df_, std::string channel, bool noCut);
+RNode OneLepBoostedAnalysis(RNode df);
+RNode OneLepResolvedAnalysis(RNode df);
+
 #endif // SELECTIONS_H
