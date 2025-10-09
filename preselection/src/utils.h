@@ -109,7 +109,7 @@ RVec<float> VInvariantPhi(const RVec<float>& vec_pt, const RVec<float>& vec_eta,
 RVec<float> VTransverseMass(const RVec<float>& vec_pt, const RVec<float>& vec_phi, float obj_pt, float obj_phi);
 RVec<float> dRfromClosestJet(const RVec<float>& ak4_eta, const RVec<float>& ak4_phi, const RVec<float>& ak8_eta, const RVec<float>& ak8_phi);
 
-RVec<RVec<int>> getJetPairs(const RVec<int>& goodJets);
+RVec<RVec<int>> getJetPairs(const RVec<float>& goodJets);
 RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& Jet_pt, const RVec<float>& Jet_eta, const RVec<float>& Jet_phi, const RVec<float>& Jet_mass);
 
 /*

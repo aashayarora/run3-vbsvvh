@@ -191,8 +191,8 @@ RVec<float> dRfromClosestJet(const RVec<float>& ak4_eta, const RVec<float>& ak4_
     return vec_minDR;
 }
 
-RVec<RVec<int>> getJetPairs(const RVec<int>& goodJets) {
-    if (Sum(goodJets) >= 2) {
+RVec<RVec<int>> getJetPairs(const RVec<float>& goodJets) {
+    if (goodJets.size() >= 2) {
         return ROOT::VecOps::Combinations(goodJets, 2);
     } else {
         RVec<RVec<int>> result;
