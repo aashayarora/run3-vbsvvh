@@ -18,6 +18,10 @@
 
 #include "TString.h"
 
+#include "TMVA/RInferenceUtils.hxx"
+#include "TMVA/RReader.hxx"
+#include "TMVA/RBDT.hxx"
+
 using RNode = ROOT::RDF::RNode;
 using ROOT::VecOps::RVec;
 using ROOT::RDF::RSampleInfo;
@@ -110,7 +114,10 @@ RVec<float> VTransverseMass(const RVec<float>& vec_pt, const RVec<float>& vec_ph
 RVec<float> dRfromClosestJet(const RVec<float>& ak4_eta, const RVec<float>& ak4_phi, const RVec<float>& ak8_eta, const RVec<float>& ak8_phi);
 
 RVec<RVec<int>> getJetPairs(const RVec<float>& goodJets);
-RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& Jet_pt, const RVec<float>& Jet_eta, const RVec<float>& Jet_phi, const RVec<float>& Jet_mass);
+RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& Jet_pt, const RVec<float>& Jet_eta);
+RVec<int> findJetPairWithMaxMjj(const RVec<float>& jet_pt, const RVec<float>& jet_eta, const RVec<float>& jet_phi, const RVec<float>& jet_mass);
+
+RVec<int> VBSJetIdxs(RVec<float> Jet_pt, RVec<float> Jet_eta, RVec<float> Jet_phi, RVec<float> Jet_mass);
 
 /*
 ############################################

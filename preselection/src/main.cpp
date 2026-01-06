@@ -9,6 +9,8 @@
 #include "spanet.h"
 #include "genSelections.h"
 
+#include "cutflow.hpp"
+
 #include "argparser.hpp"
 
 struct MyArgs : public argparse::Args {
@@ -21,6 +23,7 @@ struct MyArgs : public argparse::Args {
     int &nthread = kwarg("n,nthread", "number of threads for ROOT").set_default(0);
 
     bool &debug = flag("debug", "enable debug mode").set_default(false);
+    bool &showProgress = flag("p,progress", "show progress bar").set_default(false);
     bool &dumpInput = flag("dump_input", "Dump all input branches to output ROOT file").set_default(false);
     bool &makeSpanetTrainingdata = flag("spanet_training", "Only make training data for SPANet").set_default(false);
 };
@@ -42,7 +45,7 @@ int main(int argc, char** argv) {
     std::string input_spec = args.spec;
     std::string output_file = args.output;
 
-    std::vector<std::string> channels = {"0Lep3FJ", "0Lep2FJ", "0Lep2FJMET", "1Lep2FJ", "1Lep1FJ"};
+    std::vector<std::string> channels = {"0Lep3FJ", "0Lep2FJ", "0Lep2FJMET", "1Lep2FJ-bf", "1Lep2FJ-vbsf", "1Lep1FJ-bf", "1Lep1FJ-vbsf", "1Lep2FJ-bdt", "1Lep2FJ-bfbdt"};
     if (std::find(channels.begin(), channels.end(), args.ana) == channels.end()) {
         if (!args.makeSpanetTrainingdata) {
             std::cerr << "Did not recognize analysis tag: " << args.ana << std::endl;
@@ -68,7 +71,9 @@ int main(int argc, char** argv) {
 
     // Load df
     ROOT::RDataFrame df_ = ROOT::RDF::Experimental::FromSpec(input_spec);
-    ROOT::RDF::Experimental::AddProgressBar(df_);
+    
+    if (args.showProgress)
+        ROOT::RDF::Experimental::AddProgressBar(df_);
 
     // Define metadata
     auto df = defineMetadata(df_);

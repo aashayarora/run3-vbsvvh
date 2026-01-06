@@ -202,9 +202,9 @@ RVec<RVec<int>> getJetPairs(const RVec<float>& goodJets) {
     }
 }
 
-RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& jet_pt, const RVec<float>& jet_eta, 
-                                     const RVec<float>& jet_phi, const RVec<float>& jet_mass) {
+RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& jet_pt, const RVec<float>& jet_eta) {
     RVec<int> selected_jet_indices = {};
+    
     int first_jet_idx = -1;
     int second_jet_idx = -1;
     float max_delta_eta = 0;
@@ -224,9 +224,86 @@ RVec<int> findJetPairWithMaxDeltaEta(const RVec<float>& jet_pt, const RVec<float
     selected_jet_indices.push_back(second_jet_idx);
     
     std::sort(selected_jet_indices.begin(), selected_jet_indices.end(), 
-              [&jet_pt](int i, int j) { return jet_pt[i] > jet_pt[j]; });
-              
+            [&jet_pt](int i, int j) { return jet_pt[i] > jet_pt[j]; });
+            
     return selected_jet_indices;
+}
+
+RVec<int> findJetPairWithMaxMjj(const RVec<float>& jet_pt, const RVec<float>& jet_eta, const RVec<float>& jet_phi, const RVec<float>& jet_mass) {
+    RVec<int> selected_jet_indices = {};
+    
+    int first_jet_idx = -1;
+    int second_jet_idx = -1;
+    float max_delta_eta = 0;
+    
+    for (size_t i = 0; i < jet_eta.size(); i++) {
+        for (size_t j = i + 1; j < jet_eta.size(); j++) {
+            float mjj = fInvariantMass(jet_pt[i], jet_eta[i], jet_phi[i], jet_mass[i],
+                                     jet_pt[j], jet_eta[j], jet_phi[j], jet_mass[j]);
+            if (mjj > max_delta_eta) {
+                max_delta_eta = mjj;
+                first_jet_idx = i;
+                second_jet_idx = j;
+            }
+        }
+    }
+    
+    selected_jet_indices.push_back(first_jet_idx);
+    selected_jet_indices.push_back(second_jet_idx);
+    
+    std::sort(selected_jet_indices.begin(), selected_jet_indices.end(), 
+            [&jet_pt](int i, int j) { return jet_pt[i] > jet_pt[j]; });
+            
+    return selected_jet_indices;
+}
+
+/*
+############################################
+BDT 
+############################################
+*/
+
+RVec<int> VBSJetIdxs(RVec<float> Jet_pt, RVec<float> Jet_eta, RVec<float> Jet_phi, RVec<float> Jet_mass) {
+    if (Jet_pt.size() < 2) {
+        return RVec<int>{-1, -1};
+    }
+    auto combination_idxs = ROOT::VecOps::Combinations(Jet_pt, 2);
+
+    auto jet1_pt = ROOT::VecOps::Take(Jet_pt, combination_idxs[0]);
+    auto jet1_eta = ROOT::VecOps::Take(Jet_eta, combination_idxs[0]);
+    auto jet1_phi = ROOT::VecOps::Take(Jet_phi, combination_idxs[0]);
+    auto jet1_mass = ROOT::VecOps::Take(Jet_mass, combination_idxs[0]);
+    auto jet2_pt = ROOT::VecOps::Take(Jet_pt, combination_idxs[1]);
+    auto jet2_eta = ROOT::VecOps::Take(Jet_eta, combination_idxs[1]);
+    auto jet2_phi = ROOT::VecOps::Take(Jet_phi, combination_idxs[1]);
+    auto jet2_mass = ROOT::VecOps::Take(Jet_mass, combination_idxs[1]);
+    auto detajj = ROOT::VecOps::abs(jet1_eta - jet2_eta);
+    auto ptjj = jet1_pt + jet2_pt;
+    auto mjj = ROOT::VecOps::InvariantMasses(jet1_pt, jet1_eta, jet1_phi, jet1_mass,
+                                                    jet2_pt, jet2_eta, jet2_phi, jet2_mass);
+    auto dphijj = ROOT::VecOps::DeltaPhi(jet1_phi, jet2_phi);
+
+    TMVA::Experimental::RBDT bdt("VBS BDT", "/home/users/aaarora/phys/run3/vbsnet/notebooks/BDT_Weights.root");
+
+    RVec<float> scores;
+    float score;
+    for (size_t i = 0; i < mjj.size(); i++) {
+        score = bdt.Compute({
+                    jet1_pt[i], jet2_pt[i],
+                    jet1_eta[i], jet2_eta[i],
+                    jet1_phi[i], jet2_phi[i],
+                    jet1_mass[i], jet2_mass[i],
+                    ptjj[i], detajj[i], 
+                    dphijj[i], mjj[i]
+                })[0];
+        scores.push_back(score);
+    }
+    auto max_score_idx = std::distance(scores.begin(), std::max_element(scores.begin(), scores.end()));
+    if (scores.size() > 0) {
+        return RVec<int>{static_cast<int>(combination_idxs[0][max_score_idx]), 
+                         static_cast<int>(combination_idxs[1][max_score_idx])};
+    }
+    return RVec<int>{-1, -1};
 }
 
 /*

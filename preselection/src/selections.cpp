@@ -77,7 +77,15 @@ RNode AK4JetsSelection(RNode df_) {
     auto df = df_.Define("_dR_ak4_lep", VVdR, {"Jet_eta", "Jet_phi", "Lepton_eta", "Lepton_phi"})
         .Define("_good_ak4jets", " _dR_ak4_lep > 0.4 && "
             "Jet_pt > 20 && "
-            "abs(Jet_eta) < 5.0 && "
+            "((abs(Jet_eta) <= 2.5) || (abs(Jet_eta) >= 3.0 && abs(Jet_eta) < 5.0) || "
+            "((Jet_pt > 30 && (Jet_neHEF < ((Jet_pt - 30) / 20) && ((Jet_puIdDisc > 0.3) || " 
+            "(Jet_puIdDisc > 2 * Jet_chHEF)) && (Jet_puIdDisc > (-1 / 35 * (Jet_pt - 30) + 0.4)) && "
+            "(Jet_puIdDisc > -0.6) && "
+            "(Jet_muEF < 0.4))) || "
+            "(Jet_pt < 30 && Jet_pt > 20 && (Jet_neHEF < ((Jet_pt - 20) / 15) && ((Jet_puIdDisc > 0.3) || " 
+            "(Jet_puIdDisc > 2 * Jet_chHEF)) && (Jet_puIdDisc > (-1 / 25 * (Jet_pt - 20) + 0.4)) && "
+            "(Jet_puIdDisc > -0.6) && "
+            "(Jet_muEF < 0.4))))) && "
             "Jet_jetId >= 2")
         .Define("Jet_isTightBTag", "Jet_btagUParTAK4B > 0.4648")
         .Define("Jet_isMediumBTag", "Jet_btagUParTAK4B > 0.1272")
@@ -99,122 +107,383 @@ RNode AK8JetsSelection(RNode df_) {
     return df;
 }
 
-RNode OneLepBoostedAnalysis(RNode df_) {
-    auto df = df_.Filter("Jet_pt.size() >= 2 && FatJet_pt.size() >= 2", "C3: At least 2 AK4 jets and 2 AK8 jet"); 
+RNode OneLepBoostedAnalysisVBSBDT(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 2 && FatJet_pt.size() >= 2", "C3: At least 2 AK4 jets && 2 AK8 jet"); 
 
-    df = df.Define("_vbs_candidate_jets", findJetPairWithMaxDeltaEta, {"Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass"})
-            .Define("vbs_jet1_pt", "Jet_pt[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_eta", "Jet_eta[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_phi", "Jet_phi[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_mass", "Jet_mass[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet2_pt", "Jet_pt[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_eta", "Jet_eta[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_phi", "Jet_phi[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_mass", "Jet_mass[_vbs_candidate_jets[1]]")
-            .Define("vbs_mjj", "(ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
-                "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M()")
-            .Define("vbs_detajj", "abs(vbs_jet1_eta - vbs_jet2_eta)")
-            .Define("vbs_candidate_found", "_vbs_candidate_jets[0] != -1 && _vbs_candidate_jets[1] != -1");
+    df = df.Define("_vbs_candidate_jet_pairs", VBSJetIdxs, {"Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass"})
+        .Define("vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "vbs_jet1_idx != -1 ? Jet_pt[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "vbs_jet1_idx != -1 ? Jet_eta[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "vbs_jet1_idx != -1 ? Jet_phi[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "vbs_jet1_idx != -1 ? Jet_mass[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "vbs_jet2_idx != -1 ? Jet_pt[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "vbs_jet2_idx != -1 ? Jet_eta[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "vbs_jet2_idx != -1 ? Jet_phi[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "vbs_jet2_idx != -1 ? Jet_mass[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_mjj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "vbs_jet1_idx != -1 && vbs_jet2_idx != -1");
 
     df = df.Define("_fatjet_vbs1_dR", VdR, {"FatJet_eta", "FatJet_phi", "vbs_jet1_eta", "vbs_jet1_phi"})
-            .Define("_fatjet_vbs2_dR", VdR, {"FatJet_eta", "FatJet_phi", "vbs_jet2_eta", "vbs_jet2_phi"})
-            .Define("_boosted_h_candidate_jets", 
-                "_fatjet_vbs1_dR >= 0.8 && "
-                "_fatjet_vbs2_dR >= 0.8")
-            .Define("_best_h_idx", "FatJet_HvsQCD.size() != 0 ? ArgMax(FatJet_HvsQCD[_boosted_h_candidate_jets]) : 999.0")
-            .Define("boosted_h_candidate_score", "_best_h_idx != 999.0 ? FatJet_HvsQCD[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
-            .Define("boosted_h_candidate_found", "boosted_h_candidate_score > 0")
-            .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
-            .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
-            .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
-            .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
-            .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[_boosted_h_candidate_jets][_best_h_idx] / FatJet_tau1[_boosted_h_candidate_jets][_best_h_idx] : -999.0f");
+        .Define("_fatjet_vbs2_dR", VdR, {"FatJet_eta", "FatJet_phi", "vbs_jet2_eta", "vbs_jet2_phi"})
+        .Define("_boosted_h_candidate_jets", 
+            "_fatjet_vbs1_dR >= 0.8 && "
+            "_fatjet_vbs2_dR >= 0.8")
+        .Define("_best_h_idx", "FatJet_HvsQCD.size() != 0 ? ArgMax(FatJet_HvsQCD[_boosted_h_candidate_jets]) : 999.0")
+        .Define("boosted_h_candidate_score", "_best_h_idx != 999.0 ? FatJet_HvsQCD[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_found", "boosted_h_candidate_score > 0")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[_boosted_h_candidate_jets][_best_h_idx] / FatJet_tau1[_boosted_h_candidate_jets][_best_h_idx] : -999.0f");
 
     df = df.Define("_fatjet_h_dR", VdR, {"FatJet_eta", "FatJet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
-            .Define("_boosted_v_candidate_jets", 
-                "_fatjet_h_dR >= 0.8 && "
-                "_fatjet_vbs1_dR >= 0.8 && "
-                "_fatjet_vbs2_dR >= 0.8")
-            .Define("_best_w_idx", "FatJet_VvsQCD.size() != 0 ? ArgMax(FatJet_VvsQCD[_boosted_v_candidate_jets]) : -1")
-            .Define("boosted_v_candidate_score", "_best_w_idx != -1 ? FatJet_VvsQCD[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
-            .Define("boosted_v_candidate_found", "boosted_v_candidate_score > 0")
-            .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
-            .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
-            .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
-            .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
-            .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[_boosted_v_candidate_jets][_best_w_idx] / FatJet_tau1[_boosted_v_candidate_jets][_best_w_idx] : -999.0f");
+        .Define("_boosted_v_candidate_jets", 
+            "_fatjet_h_dR >= 0.8 && "
+            "_fatjet_vbs1_dR >= 0.8 && "
+            "_fatjet_vbs2_dR >= 0.8")
+        .Define("_best_w_idx", "FatJet_VvsQCD.size() != 0 ? ArgMax(FatJet_VvsQCD[_boosted_v_candidate_jets]) : -1")
+        .Define("boosted_v_candidate_score", "_best_w_idx != -1 ? FatJet_VvsQCD[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_found", "boosted_v_candidate_score > 0")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[_boosted_v_candidate_jets][_best_w_idx] / FatJet_tau1[_boosted_v_candidate_jets][_best_w_idx] : -999.0f");
 
     df = df.Define("fully_reconstructed", "vbs_candidate_found && boosted_h_candidate_found && boosted_v_candidate_found");
     return df;
 }
 
-RNode OneLepResolvedAnalysis(RNode df_) {
-    auto df = df_.Filter("Jet_pt.size() >= 4 && FatJet_pt.size() == 1", "C3: At least 4 AK4 jets and 1 AK8 jet");
+RNode OneLepBoostedAnalysisVBSFirst(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 2 && FatJet_pt.size() >= 2", "C3: At least 2 AK4 jets && 2 AK8 jet"); 
 
-    df = df.Define("_vbs_candidate_jets", findJetPairWithMaxDeltaEta, {"Jet_pt", "Jet_eta", "Jet_phi", "Jet_mass"})
-            .Define("vbs_jet1_pt", "Jet_pt[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_eta", "Jet_eta[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_phi", "Jet_phi[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet1_mass", "Jet_mass[_vbs_candidate_jets[0]]")
-            .Define("vbs_jet2_pt", "Jet_pt[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_eta", "Jet_eta[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_phi", "Jet_phi[_vbs_candidate_jets[1]]")
-            .Define("vbs_jet2_mass", "Jet_mass[_vbs_candidate_jets[1]]")
-            .Define("vbs_mjj", "(ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
-                "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M()")
-            .Define("vbs_detajj", "abs(vbs_jet1_eta - vbs_jet2_eta)")
-            .Define("vbs_candidate_found", "_vbs_candidate_jets[0] != -1 && _vbs_candidate_jets[1] != -1");
+    df = df.Define("_vbs_candidate_jet_pairs", findJetPairWithMaxDeltaEta, {"Jet_pt", "Jet_eta"})
+        .Define("vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "vbs_jet1_idx != -1 ? Jet_pt[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "vbs_jet1_idx != -1 ? Jet_eta[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "vbs_jet1_idx != -1 ? Jet_phi[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "vbs_jet1_idx != -1 ? Jet_mass[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "vbs_jet2_idx != -1 ? Jet_pt[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "vbs_jet2_idx != -1 ? Jet_eta[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "vbs_jet2_idx != -1 ? Jet_phi[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "vbs_jet2_idx != -1 ? Jet_mass[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_mjj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "vbs_jet1_idx != -1 && vbs_jet2_idx != -1");
+
+    df = df.Define("_fatjet_vbs1_dR", VdR, {"FatJet_eta", "FatJet_phi", "vbs_jet1_eta", "vbs_jet1_phi"})
+        .Define("_fatjet_vbs2_dR", VdR, {"FatJet_eta", "FatJet_phi", "vbs_jet2_eta", "vbs_jet2_phi"})
+        .Define("_boosted_h_candidate_jets", 
+            "_fatjet_vbs1_dR >= 0.8 && "
+            "_fatjet_vbs2_dR >= 0.8")
+        .Define("_best_h_idx", "FatJet_HvsQCD.size() != 0 ? ArgMax(FatJet_HvsQCD[_boosted_h_candidate_jets]) : 999.0")
+        .Define("boosted_h_candidate_score", "_best_h_idx != 999.0 ? FatJet_HvsQCD[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_found", "boosted_h_candidate_score > 0")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[_boosted_h_candidate_jets][_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[_boosted_h_candidate_jets][_best_h_idx] / FatJet_tau1[_boosted_h_candidate_jets][_best_h_idx] : -999.0f");
+
+    df = df.Define("_fatjet_h_dR", VdR, {"FatJet_eta", "FatJet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("_boosted_v_candidate_jets", 
+            "_fatjet_h_dR >= 0.8 && "
+            "_fatjet_vbs1_dR >= 0.8 && "
+            "_fatjet_vbs2_dR >= 0.8")
+        .Define("_best_w_idx", "FatJet_VvsQCD.size() != 0 ? ArgMax(FatJet_VvsQCD[_boosted_v_candidate_jets]) : -1")
+        .Define("boosted_v_candidate_score", "_best_w_idx != -1 ? FatJet_VvsQCD[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_found", "boosted_v_candidate_score > 0")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[_boosted_v_candidate_jets][_best_w_idx] / FatJet_tau1[_boosted_v_candidate_jets][_best_w_idx] : -999.0f");
+
+    df = df.Define("fully_reconstructed", "vbs_candidate_found && boosted_h_candidate_found && boosted_v_candidate_found");
+    return df;
+}
+
+RNode OneLepBoostedAnalysisBosonFirst(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 2 && FatJet_pt.size() >= 2", "C3: At least 2 AK4 jets && 2 AK8 jet"); 
+
+    df = df.Define("_best_h_idx", "FatJet_HvsQCD.size() != 0 ? ArgMax(FatJet_HvsQCD) : 999.0")
+        .Define("boosted_h_candidate_score", "_best_h_idx != 999.0 ? FatJet_HvsQCD[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_found", "boosted_h_candidate_score > 0")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[_best_h_idx] / FatJet_tau1[_best_h_idx] : -999.0f");
+
+    df = df.Define("_fatjet_h_dR", VdR, {"FatJet_eta", "FatJet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("_boosted_v_candidate_jets", 
+            "_fatjet_h_dR >= 0.8")
+        .Define("_best_w_idx", "FatJet_VvsQCD.size() != 0 ? ArgMax(FatJet_VvsQCD[_boosted_v_candidate_jets]) : -1")
+        .Define("boosted_v_candidate_score", "_best_w_idx != -1 ? FatJet_VvsQCD[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_found", "boosted_v_candidate_score > 0")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[_boosted_v_candidate_jets][_best_w_idx] / FatJet_tau1[_boosted_v_candidate_jets][_best_w_idx] : -999.0f");
+
+    df = df.Define("jet_h_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("jet_v_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_v_candidate_eta", "boosted_v_candidate_phi"})
+        .Define("_vbs_candidate_jets",
+            "jet_h_dR >= 0.8 && "
+            "jet_v_dR >= 0.8")
+        .Define("_vbs_candidate_pt", "Jet_pt[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_eta", " Jet_eta[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_phi", "Jet_phi[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_mass", "Jet_mass[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_jet_pairs", findJetPairWithMaxDeltaEta, {"_vbs_candidate_pt", "_vbs_candidate_eta"})
+        .Define("_vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("_vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "_vbs_jet1_idx != -1 ? _vbs_candidate_pt[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "_vbs_jet1_idx != -1 ? _vbs_candidate_eta[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "_vbs_jet1_idx != -1 ? _vbs_candidate_phi[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "_vbs_jet1_idx != -1 ? _vbs_candidate_mass[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "_vbs_jet2_idx != -1 ? _vbs_candidate_pt[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "_vbs_jet2_idx != -1 ? _vbs_candidate_eta[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "_vbs_jet2_idx != -1 ? _vbs_candidate_phi[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "_vbs_jet2_idx != -1 ? _vbs_candidate_mass[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet1_idx", "_vbs_jet1_idx != -1 ? std::find(Jet_pt.begin(), Jet_pt.end(), vbs_jet1_pt) - Jet_pt.begin() : -1")
+        .Define("vbs_jet2_idx", "_vbs_jet2_idx != -1 ? std::find(Jet_pt.begin(), Jet_pt.end(), vbs_jet2_pt) - Jet_pt.begin() : -1")
+        .Define("vbs_mjj", "(_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1");
+
+    df = df.Define("fully_reconstructed", "vbs_candidate_found && boosted_h_candidate_found && boosted_v_candidate_found");
+    return df;
+}
+
+RNode OneLepBoostedAnalysisBosonFirstBDT(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 2 && FatJet_pt.size() >= 2", "C3: At least 2 AK4 jets && 2 AK8 jet"); 
+
+    df = df.Define("_best_h_idx", "FatJet_HvsQCD.size() != 0 ? ArgMax(FatJet_HvsQCD) : 999.0")
+        .Define("boosted_h_candidate_score", "_best_h_idx != 999.0 ? FatJet_HvsQCD[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_found", "boosted_h_candidate_score > 0")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[_best_h_idx] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[_best_h_idx] / FatJet_tau1[_best_h_idx] : -999.0f");
+
+    df = df.Define("_fatjet_h_dR", VdR, {"FatJet_eta", "FatJet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("_boosted_v_candidate_jets", 
+            "_fatjet_h_dR >= 0.8")
+        .Define("_best_w_idx", "FatJet_VvsQCD.size() != 0 ? ArgMax(FatJet_VvsQCD[_boosted_v_candidate_jets]) : -1")
+        .Define("boosted_v_candidate_score", "_best_w_idx != -1 ? FatJet_VvsQCD[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_found", "boosted_v_candidate_score > 0")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[_boosted_v_candidate_jets][_best_w_idx] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[_boosted_v_candidate_jets][_best_w_idx] / FatJet_tau1[_boosted_v_candidate_jets][_best_w_idx] : -999.0f");
+
+    df = df.Define("jet_h_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("jet_v_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_v_candidate_eta", "boosted_v_candidate_phi"})
+        .Define("_vbs_candidate_jets",
+            "jet_h_dR >= 0.8 && "
+            "jet_v_dR >= 0.8")
+        .Define("_vbs_candidate_pt", "Jet_pt[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_eta", " Jet_eta[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_phi", "Jet_phi[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_mass", "Jet_mass[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_jet_pairs", VBSJetIdxs, {"_vbs_candidate_pt", "_vbs_candidate_eta", "_vbs_candidate_phi", "_vbs_candidate_mass"})
+        .Define("_vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("_vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "_vbs_jet1_idx != -1 ? _vbs_candidate_pt[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "_vbs_jet1_idx != -1 ? _vbs_candidate_eta[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "_vbs_jet1_idx != -1 ? _vbs_candidate_phi[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "_vbs_jet1_idx != -1 ? _vbs_candidate_mass[_vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "_vbs_jet2_idx != -1 ? _vbs_candidate_pt[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "_vbs_jet2_idx != -1 ? _vbs_candidate_eta[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "_vbs_jet2_idx != -1 ? _vbs_candidate_phi[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "_vbs_jet2_idx != -1 ? _vbs_candidate_mass[_vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet1_idx", "_vbs_jet1_idx != -1 ? std::find(Jet_pt.begin(), Jet_pt.end(), vbs_jet1_pt) - Jet_pt.begin() : -1")
+        .Define("vbs_jet2_idx", "_vbs_jet2_idx != -1 ? std::find(Jet_pt.begin(), Jet_pt.end(), vbs_jet2_pt) - Jet_pt.begin() : -1")
+        .Define("vbs_mjj", "(_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "_vbs_jet1_idx != -1 && _vbs_jet2_idx != -1");
+
+    df = df.Define("fully_reconstructed", "vbs_candidate_found && boosted_h_candidate_found && boosted_v_candidate_found");
+    return df;
+}
+
+RNode OneLepResolvedAnalysisVBSFirst(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 4 && FatJet_pt.size() == 1", "C3: At least 4 AK4 jets && 1 AK8 jet");
+
+    df = df.Define("_vbs_candidate_jet_pairs", findJetPairWithMaxDeltaEta, {"Jet_pt", "Jet_eta"})
+        .Define("vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "vbs_jet1_idx != -1 ? Jet_pt[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "vbs_jet1_idx != -1 ? Jet_eta[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "vbs_jet1_idx != -1 ? Jet_phi[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "vbs_jet1_idx != -1 ? Jet_mass[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "vbs_jet2_idx != -1 ? Jet_pt[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "vbs_jet2_idx != -1 ? Jet_eta[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "vbs_jet2_idx != -1 ? Jet_phi[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "vbs_jet2_idx != -1 ? Jet_mass[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_mjj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "vbs_jet1_idx != -1 && vbs_jet2_idx != -1");
 
     df = df.Define("boosted_h_candidate_found", "FatJet_HvsQCD[0] > FatJet_VvsQCD[0]")
-            .Define("boosted_v_candidate_found", "FatJet_VvsQCD[0] > FatJet_HvsQCD[0]")
-            .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[0] : -999.0f")
-            .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[0] : -999.0f")
-            .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[0] : -999.0f")
-            .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[0] : -999.0f")
-            .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
-            .Define("boosted_h_candidate_score", "boosted_h_candidate_found ? FatJet_HvsQCD[0] : -999.0f")
-            .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[0] : -999.0f")
-            .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[0] : -999.0f")
-            .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[0] : -999.0f")
-            .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[0] : -999.0f")
-            .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
-            .Define("boosted_v_candidate_score", "boosted_v_candidate_found ? FatJet_VvsQCD[0] : -999.0f");
+        .Define("boosted_v_candidate_found", "FatJet_VvsQCD[0] > FatJet_HvsQCD[0]")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[0] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[0] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[0] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[0] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
+        .Define("boosted_h_candidate_score", "boosted_h_candidate_found ? FatJet_HvsQCD[0] : -999.0f")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[0] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[0] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[0] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[0] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
+        .Define("boosted_v_candidate_score", "boosted_v_candidate_found ? FatJet_VvsQCD[0] : -999.0f");
 
     df = df.Define("jet_v_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_v_candidate_eta", "boosted_v_candidate_phi"})
-            .Define("jet_h_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
-            .Define("jet_vbs1_dR", VdR, {"Jet_eta", "Jet_phi", "vbs_jet1_eta", "vbs_jet1_phi"})
-            .Define("jet_vbs2_dR", VdR, {"Jet_eta", "Jet_phi", "vbs_jet2_eta", "vbs_jet2_phi"})
-            .Define("_resolved_candidate_jets",
-                "Jet_eta <= 2.5 && "
-                "jet_v_dR >= 0.8 && "
-                "jet_h_dR >= 0.8 && "
-                "jet_vbs1_dR >= 0.4 && "
-                "jet_vbs2_dR >= 0.4 && "
-                "Jet_isTightBTag")
-            .Define("_resolved_candidate_pt", "Jet_pt[_resolved_candidate_jets]")
-            .Define("_resolved_candidate_eta", "Jet_eta[_resolved_candidate_jets]")
-            .Define("_resolved_candidate_phi", "Jet_phi[_resolved_candidate_jets]")
-            .Define("_resolved_candidate_mass", "Jet_mass[_resolved_candidate_jets]")
-            .Define("_resolved_candidate_btag", "Jet_btagUParTAK4B[_resolved_candidate_jets]")
-            .Define("_resolved_candidate_pairs", getJetPairs, {"_resolved_candidate_pt"})
-            .Define("_resolved_candidate_pairs1_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[0], -999.0f)")
-            .Define("_resolved_candidate_pairs2_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[1], -999.0f)")
-            .Define("_resolved_candidate_pairs1_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[0], -999.0f)")
-            .Define("_resolved_candidate_pairs2_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[1], -999.0f)")
-            .Define("_resolved_candidate_pairs1_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[0], -999.0f)")
-            .Define("_resolved_candidate_pairs2_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[1], -999.0f)")
-            .Define("_resolved_candidate_pairs1_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[0], -999.0f)")
-            .Define("_resolved_candidate_pairs2_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[1], -999.0f)")
-            .Define("_resolved_candidate_pairs1_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[0], -999.0f)")
-            .Define("_resolved_candidate_pairs2_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[1], -999.0f)")
-            .Define("_resolved_candidate_mjj", "InvariantMasses(_resolved_candidate_pairs1_pt, _resolved_candidate_pairs1_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs1_mass, _resolved_candidate_pairs2_pt, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs2_phi, _resolved_candidate_pairs2_mass)")
-            .Define("_resolved_candidate_dR", "DeltaR(_resolved_candidate_pairs1_eta, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs2_phi)")
-            .Define("_sorted_resolved_dR", "Argsort(-_resolved_candidate_dR)")
-            .Define("resolved_candidate_mjj", "Take(_resolved_candidate_mjj, _sorted_resolved_dR)")
-            .Define("resolved_candidate_btag1", "Take(_resolved_candidate_pairs1_btag, _sorted_resolved_dR)")
-            .Define("resolved_candidate_btag2", "Take(_resolved_candidate_pairs2_btag, _sorted_resolved_dR)");
+        .Define("jet_h_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("jet_vbs1_dR", VdR, {"Jet_eta", "Jet_phi", "vbs_jet1_eta", "vbs_jet1_phi"})
+        .Define("jet_vbs2_dR", VdR, {"Jet_eta", "Jet_phi", "vbs_jet2_eta", "vbs_jet2_phi"})
+        .Define("_resolved_candidate_jets",
+            "abs(Jet_eta) <= 2.5 && "
+            "jet_v_dR >= 0.8 && "
+            "jet_h_dR >= 0.8 && "
+            "jet_vbs1_dR >= 0.4 && "
+            "jet_vbs2_dR >= 0.4 ")
+        .Define("_resolved_candidate_pt", "Jet_pt[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_eta", "Jet_eta[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_phi", "Jet_phi[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_mass", "Jet_mass[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_btag", "Jet_btagUParTAK4B[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_pairs", getJetPairs, {"_resolved_candidate_pt"})
+        .Define("_resolved_candidate_pairs1_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_mjj", "InvariantMasses(_resolved_candidate_pairs1_pt, _resolved_candidate_pairs1_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs1_mass, _resolved_candidate_pairs2_pt, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs2_phi, _resolved_candidate_pairs2_mass)")
+        .Define("_resolved_candidate_dR", "DeltaR(_resolved_candidate_pairs1_eta, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs2_phi)")
+        .Define("_sorted_resolved_dR", "Argsort(-_resolved_candidate_dR)")
+        .Define("sorted_resolved_mjj", "Take(_resolved_candidate_mjj, _sorted_resolved_dR, -999.0f)")
+        .Define("resolved_candidate_jet1_pt", "_resolved_candidate_pairs1_pt[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_eta", "_resolved_candidate_pairs1_eta[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_phi", "_resolved_candidate_pairs1_phi[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_mass", "_resolved_candidate_pairs1_mass[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_pt", "_resolved_candidate_pairs2_pt[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_eta", "_resolved_candidate_pairs2_eta[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_phi", "_resolved_candidate_pairs2_phi[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_mass", "_resolved_candidate_pairs2_mass[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_btag1", "_resolved_candidate_pairs1_btag[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_btag2", "_resolved_candidate_pairs2_btag[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_mjj", "_resolved_candidate_mjj[_sorted_resolved_dR[0]]");
 
-    df = df.Define("fully_reconstructed", "vbs_candidate_found && (boosted_h_candidate_found || boosted_v_candidate_found) && (resolved_candidate_mjj.size() > 0 && resolved_candidate_mjj[0] > 0)");
+    df = df.Define("fully_reconstructed", "vbs_candidate_found && (boosted_h_candidate_found || boosted_v_candidate_found) && resolved_candidate_mjj > 0");
+
+    return df;
+}
+
+RNode OneLepResolvedAnalysisBosonFirst(RNode df_) {
+    auto df = df_.Filter("Jet_pt.size() >= 4 && FatJet_pt.size() == 1", "C3: At least 4 AK4 jets && 1 AK8 jet");
+
+    df = df.Define("boosted_h_candidate_found", "FatJet_HvsQCD[0] > FatJet_VvsQCD[0]")
+        .Define("boosted_v_candidate_found", "FatJet_VvsQCD[0] > FatJet_HvsQCD[0]")
+        .Define("boosted_h_candidate_eta", "boosted_h_candidate_found ? FatJet_eta[0] : -999.0f")
+        .Define("boosted_h_candidate_phi", "boosted_h_candidate_found ? FatJet_phi[0] : -999.0f")
+        .Define("boosted_h_candidate_mass", "boosted_h_candidate_found ? FatJet_mass[0] : -999.0f")
+        .Define("boosted_h_candidate_pt", "boosted_h_candidate_found ? FatJet_pt[0] : -999.0f")
+        .Define("boosted_h_candidate_tau21", "boosted_h_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
+        .Define("boosted_h_candidate_score", "boosted_h_candidate_found ? FatJet_HvsQCD[0] : -999.0f")
+        .Define("boosted_v_candidate_eta", "boosted_v_candidate_found ? FatJet_eta[0] : -999.0f")
+        .Define("boosted_v_candidate_phi", "boosted_v_candidate_found ? FatJet_phi[0] : -999.0f")
+        .Define("boosted_v_candidate_mass", "boosted_v_candidate_found ? FatJet_mass[0] : -999.0f")
+        .Define("boosted_v_candidate_pt", "boosted_v_candidate_found ? FatJet_pt[0] : -999.0f")
+        .Define("boosted_v_candidate_tau21", "boosted_v_candidate_found ? FatJet_tau2[0] / FatJet_tau1[0] : -999.0f")
+        .Define("boosted_v_candidate_score", "boosted_v_candidate_found ? FatJet_VvsQCD[0] : -999.0f");
+
+    df = df.Define("jet_v_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_v_candidate_eta", "boosted_v_candidate_phi"})
+        .Define("jet_h_dR", VdR, {"Jet_eta", "Jet_phi", "boosted_h_candidate_eta", "boosted_h_candidate_phi"})
+        .Define("_resolved_candidate_jets",
+            "abs(Jet_eta) <= 2.5 && "
+            "jet_v_dR >= 0.8 && "
+            "jet_h_dR >= 0.8 ")
+        .Define("_resolved_candidate_pt", "Jet_pt[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_eta", "Jet_eta[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_phi", "Jet_phi[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_mass", "Jet_mass[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_btag", "Jet_btagUParTAK4B[_resolved_candidate_jets]")
+        .Define("_resolved_candidate_pairs", getJetPairs, {"_resolved_candidate_pt"})
+        .Define("_resolved_candidate_pairs1_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_pt", "Take(_resolved_candidate_pt, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_eta", "Take(_resolved_candidate_eta, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_phi", "Take(_resolved_candidate_phi, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_mass", "Take(_resolved_candidate_mass, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_pairs1_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[0], -999.0f)")
+        .Define("_resolved_candidate_pairs2_btag", "Take(_resolved_candidate_btag, _resolved_candidate_pairs[1], -999.0f)")
+        .Define("_resolved_candidate_mjj", "InvariantMasses(_resolved_candidate_pairs1_pt, _resolved_candidate_pairs1_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs1_mass, _resolved_candidate_pairs2_pt, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs2_phi, _resolved_candidate_pairs2_mass)")
+        .Define("_resolved_candidate_dR", "DeltaR(_resolved_candidate_pairs1_eta, _resolved_candidate_pairs2_eta, _resolved_candidate_pairs1_phi, _resolved_candidate_pairs2_phi)")
+        .Define("_sorted_resolved_dR", "Argsort(-_resolved_candidate_dR)")
+        .Define("sorted_resolved_mjj", "Take(_resolved_candidate_mjj, _sorted_resolved_dR, -999.0f)")
+        .Define("resolved_candidate_jet1_pt", "_resolved_candidate_pairs1_pt[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_eta", "_resolved_candidate_pairs1_eta[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_phi", "_resolved_candidate_pairs1_phi[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet1_mass", "_resolved_candidate_pairs1_mass[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_pt", "_resolved_candidate_pairs2_pt[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_eta", "_resolved_candidate_pairs2_eta[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_phi", "_resolved_candidate_pairs2_phi[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_jet2_mass", "_resolved_candidate_pairs2_mass[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_btag1", "_resolved_candidate_pairs1_btag[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_btag2", "_resolved_candidate_pairs2_btag[_sorted_resolved_dR[0]]")
+        .Define("resolved_candidate_mjj", "_resolved_candidate_mjj[_sorted_resolved_dR[0]]");
+
+    df = df.Define("jet_resolved1_dR", VdR, {"Jet_eta", "Jet_phi", "resolved_candidate_jet1_eta", "resolved_candidate_jet1_phi"})
+        .Define("jet_resolved2_dR", VdR, {"Jet_eta", "Jet_phi", "resolved_candidate_jet2_eta", "resolved_candidate_jet2_phi"})
+        .Define("_vbs_candidate_jets",
+            "jet_h_dR >= 0.8 && "
+            "jet_v_dR >= 0.8 && "
+            "jet_resolved1_dR >= 0.4 && "
+            "jet_resolved2_dR >= 0.4 ")
+        .Define("_vbs_candidate_pt", "Jet_pt[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_eta", "Jet_eta[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_phi", "Jet_phi[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_mass", "Jet_mass[_vbs_candidate_jets]")
+        .Define("_vbs_candidate_jet_pairs", findJetPairWithMaxDeltaEta, {"_vbs_candidate_pt", "_vbs_candidate_eta"})
+        .Define("vbs_jet1_idx", "_vbs_candidate_jet_pairs[0]")
+        .Define("vbs_jet2_idx", "_vbs_candidate_jet_pairs[1]")
+        .Define("vbs_jet1_pt", "vbs_jet1_idx != -1 ? _vbs_candidate_pt[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_eta", "vbs_jet1_idx != -1 ? _vbs_candidate_eta[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_phi", "vbs_jet1_idx != -1 ? _vbs_candidate_phi[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet1_mass", "vbs_jet1_idx != -1 ? _vbs_candidate_mass[vbs_jet1_idx] : -999.0f")
+        .Define("vbs_jet2_pt", "vbs_jet2_idx != -1 ? _vbs_candidate_pt[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_eta", "vbs_jet2_idx != -1 ? _vbs_candidate_eta[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_phi", "vbs_jet2_idx != -1 ? _vbs_candidate_phi[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_jet2_mass", "vbs_jet2_idx != -1 ? _vbs_candidate_mass[vbs_jet2_idx] : -999.0f")
+        .Define("vbs_mjj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? (ROOT::Math::PtEtaPhiMVector(vbs_jet1_pt, vbs_jet1_eta, vbs_jet1_phi, vbs_jet1_mass) + "
+            "ROOT::Math::PtEtaPhiMVector(vbs_jet2_pt, vbs_jet2_eta, vbs_jet2_phi, vbs_jet2_mass)).M() : -999.0f")
+        .Define("vbs_detajj", "(vbs_jet1_idx != -1 && vbs_jet2_idx != -1) ? abs(vbs_jet1_eta - vbs_jet2_eta) : -999.0f")
+        .Define("vbs_candidate_found", "vbs_jet1_idx != -1 && vbs_jet2_idx != -1");
+                
+    df = df.Define("fully_reconstructed", "vbs_candidate_found && (boosted_h_candidate_found || boosted_v_candidate_found) && resolved_candidate_mjj > 0");
 
     return df;
 }
@@ -228,20 +497,45 @@ RNode runPreselection(RNode df_, std::string channel, bool noCut) {
     
     df = TriggerSelections(df, channel, TriggerMap);
     // channel-specific selections
-    if (channel == "1Lep2FJ") {
+    if (channel == "1Lep2FJ-bf") {
         df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
             "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
             "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
-            df = OneLepBoostedAnalysis(df);
+        df = OneLepBoostedAnalysisBosonFirst(df);
     }
-    else if (channel == "1Lep1FJ") {
+    else if (channel == "1Lep2FJ-vbsf") {
         df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
             "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
             "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
-            df = OneLepResolvedAnalysis(df);
+        df = OneLepBoostedAnalysisVBSFirst(df);
+    }
+    else if (channel == "1Lep2FJ-bdt") {
+        df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
+            "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
+            "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
+        df = OneLepBoostedAnalysisVBSBDT(df);
+    }
+    else if (channel == "1Lep2FJ-bfbdt") {
+        df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
+            "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
+            "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
+        df = OneLepBoostedAnalysisBosonFirstBDT(df);
+    }
+    else if (channel == "1Lep1FJ-bf") {
+        df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
+            "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
+            "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
+        df = OneLepResolvedAnalysisBosonFirst(df);
+    }
+    else if (channel == "1Lep1FJ-vbsf") {
+        df = df.Filter("((nMuon_Loose == 1 && nMuon_Tight == 1 && nElectron_Loose == 0 && nElectron_Tight == 0) || "
+            "(nMuon_Loose == 0 && nMuon_Tight == 0 && nElectron_Loose == 1 && nElectron_Tight == 1)) && "
+            "(Lepton_pt[0] > 40)", "C2: 1-lepton selection");
+        df = OneLepResolvedAnalysisVBSFirst(df);
     }
     else if (channel == "0Lep3FJ") {
         df = df.Filter("nMuon_Loose == 0 && nElectron_Loose == 0", "C2: 0-lepton selection");
+        df = ZeroLepAnalysis(df);
     }
 
     return df;
