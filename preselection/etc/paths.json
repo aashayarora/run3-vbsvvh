@@ -1,13 +1,13 @@
 {
     "0Lep3FJ": {
-        "bkg": "/ceph/cms/store/user/aaarora/skims/bkg/*/*/*",
-        "data": "/ceph/cms/store/user/aaarora/skims/data/*/*/*",
-        "sig": "/ceph/cms/store/user/aaarora/skims/sig/Run3Summer24/*/*"
+        "bkg": "/ceph/cms/store/user/aaarora/skims_v1/bkg/*/*/*",
+        "data": "/ceph/cms/store/user/aaarora/skims_v2/*/*/*",
+        "sig": "/ceph/cms/store/user/aaarora/skims_v1/sig/Run3Summer24/*/*"
     },
     "1Lep2FJ": {
-        "bkg": "/ceph/cms/store/user/aaarora/skims/bkg/*/*/*",
-        "data": "/ceph/cms/store/user/aaarora/skims/data/*/*/*",
-        "sig": "/ceph/cms/store/user/aaarora/skims/sig/Run3Summer24/*/*1p5*"
+        "bkg": "/ceph/cms/store/user/aaarora/skims_v3/RunIII2024Summer24NanoAODv15/*",
+        "data": "/ceph/cms/store/user/aaarora/skims_v2/Run2024*/*",
+        "sig": "/ceph/cms/store/user/aaarora/skims_v3/Run3Summer24/*2p0*"
     },
     "1Lep1FJ_run2": {
         "bkg": "/ceph/cms/store/user/mdittric/skim/nanoaodv9_bkg_1FJ1Lep_13Jun2025_v1/*/",
