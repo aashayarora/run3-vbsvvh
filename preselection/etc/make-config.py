@@ -117,11 +117,10 @@ class Config:
                 return value
         return "Other"
 
-    @staticmethod
-    def get_sample_name(sample):
-        if "data" in sample:
-            match = re.search(r"Run(\d{4}[A-Z])/(.+)/([A-Za-z]+)", sample)
-            return f"Run{match.group(1)}-{match.group(3)}"
+    def get_sample_name(self, sample):
+        if self.sample_category == "data":
+            match = re.search(r"Run(\d{4}[A-Z])/(.+)", sample)
+            return f"Run{match.group(1)}-{match.group(2)}"
         else:
             return re.search(r"/([^/]+)_TuneCP5", sample).group(1)
 
@@ -130,11 +129,6 @@ class Config:
             # Get the dataset name
             #dataset_name = os.path.basename(os.path.dirname(sample))
             dataset_name = os.path.basename(sample)
-            print(dataset_name)
-            if dataset_name.startswith("TTbb"):
-                print("    -> Skipping ttbb for now, we don't have an xsec for it.")
-                continue
-
             # Get the info about the sample
             sample_name = self.get_sample_name(sample)
             try:
