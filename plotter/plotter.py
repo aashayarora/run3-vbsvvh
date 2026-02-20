@@ -127,6 +127,7 @@ class Plotter:
         sig_samples_labels: Optional[List[str]] = None, 
         cut: Optional[str] = None, 
         year: Optional[Union[int, str]] = None,
+        lumi: Optional[float] = None,
         define_vars: Optional[Dict[str, str]] = None
     ):
         """
@@ -149,6 +150,7 @@ class Plotter:
         """
         logger.info("Initializing Plotter")
         self.year = year
+        self.lumi = lumi
         self.define_vars = define_vars or {}
         self._validate_inputs(sig, bkg, data)
         self._initialize_dataframes(sig, bkg, data, cut)
@@ -709,7 +711,8 @@ class Plotter:
                 )
             
             year = self.year if self.year else "Run3"
-            hep.cms.label("Preliminary", data=has_data, year=year, com=13.6, lumi=109.08, ax=ax_main)
+            lumi = self.lumi if self.lumi else 109.08
+            hep.cms.label("Preliminary", data=has_data, year=year, com=13.6, lumi=lumi, ax=ax_main)
             
             self._configure_axes(ax_main, ax_ratio, histogram, hist_ratio is not None)
             
